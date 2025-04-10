@@ -1,51 +1,98 @@
 import express from 'express'
 import { PrismaClient } from '@prisma/client'
 import cors from 'cors'
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
+import logger from 'morgan'
 
 const prisma = new PrismaClient()
-
-
 const app = express()
 app.use(express.json())
 app.use(cors())
+app.use(logger('dev'))
+//Segredo para assinar os tokens JWT
+const JWT_SECRET = 'minha-chave-secreta';
 
-app.post('/usuarios', async (req, res) => {
+app.post('/login', async (req, res) => {
+    const{ email, password } = req.body;
 
-    await prisma.user.create({
-        data: {
-            name: req.body.name,
-            email: req.body.email,
-            contact: req.body.contact,
+    // Verifica se o usuário existe no banco de dados
+    const user = await prisma.user.findUnique({
+        where: { email },
+    });
+
+    if (!user) {
+        return res.status(401).json({ message: 'Usuário não encontrado' });
+    }
+
+    // Compara a senha fornecida com a senha armazenada (usando bcrypt)
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+        return res.status(401).json({ message: 'Senha incorreta' });
+    }
+
+    // Gera o token JWT
+    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
+
+    res.status(201).json({ message: 'Usuarios criado com sucesso', user, token})
+});
+
+app.post('/register', async (req, res) => {
+    const { name, email, password} = req.body;
+    try {
+        // Verifica se já existe um usuário com o mesmo email
+        const existingUser = await prisma.user.findUnique({
+            where: {email:email},
+        });
+
+        if (existingUser) {
+            return res.status(400).json({ message: 'Email já está em uso' });
         }
-    })
 
-    res.status(201).json(res.body)
+        // Criptografa a senha
+        const hashedPassword = await bcrypt.hash(password, 10);
 
-})
+        // Cria o usuário no banco de dados
+        const newUser = await prisma.user.create({
+            data: {
+                name,
+                email,
+                password: hashedPassword,
+            },
+        });
+
+        res.status(201).json({ message: 'Usuário registrado com sucesso', user: newUser });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Erro ao registrar usuário' });
+    }
+});
+
 app.get('/usuarios', async (req, res) => {
-    let users = []
+    let users;
 
-    if (req.body) {
+    if (req.query.name || req.query.email || req.query.contact) {
         users = await prisma.user.findMany({
             where: {
                     name: req.query.name,
                     email: req.query.email,
                     contact: req.query.contact
             },
-        })
+        });
         } else {
         users = await prisma.user.findMany()
     }
 
     res.status(200).json(users)
 
-})
+});
 
     app.put('/usuarios/:id', async (req, res) => {
 
         await prisma.user.update({
         where: {
-            id: req.params.id,
+            id: Number(req.params.id),
         },
         data: {
             name: req.body.name,
@@ -59,16 +106,48 @@ app.get('/usuarios', async (req, res) => {
 })
 
 app.delete('/usuarios/:id', async (req, res) => {
-    await prisma.user.delete({
-        where: {
-            id: req.params.id,
-        },
-    })
-
-    res.status(200).json({ message: 'Usuario deletado com sucesso!'})
+    try{
+        const id = req.params.id;
+        await prisma.user.delete({
+            where: {
+                id
+            },
+        })
+    
+        res.status(200).json({ message: 'Usuario deletado com sucesso!'})
+    }catch(err){
+        console.log(err)
+        res.status(500).json({ message: 'Erro ao deletar o usuário'})
+    }
 })
 
-app.listen(3000)
+// Middleware de validação de token JWT
+const validarToken = (req, res, next) => {
+    const token = req.headers['authorization']?.replace('Bearer ', '');
+
+    if (!token) {
+        return res.status(403).json({ message: 'Token não fornecido' });
+    }
+
+    try {
+        // Verifica e decodifica o token
+        const decoded = jwt.verify(token, JWT_SECRET);
+        req.usuario = decoded; // Passa as informações do usuário para o próximo middleware
+        next();
+    } catch (err) {
+        return res.status(401).json({ message: 'Token inválido' });
+    }
+};
+
+// Exemplo de rota protegida
+app.get('/usuarios/protegidos', validarToken, async (req, res) => {
+    const usuarios = await prisma.user.findMany();
+    res.status(200).json({ usuarios, usuarioAutenticado: req.usuario });
+});
+
+app.listen(3000, ()=>{
+    console.log("Servidor rodando na porta http://localhost:3000")
+})
 
 //  user: davipadilha
 //  senha do banco de dados: lG3M27LxIrQ5U3zw
