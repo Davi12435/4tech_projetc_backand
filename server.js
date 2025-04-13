@@ -34,7 +34,7 @@ app.post('/login', async (req, res) => {
 
     // Gera o token JWT
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
-
+    
     res.status(201).json({ message: 'Usuarios criado com sucesso', user, token})
 });
 
@@ -110,7 +110,7 @@ app.delete('/usuarios/:id', async (req, res) => {
         const id = req.params.id;
         await prisma.user.delete({
             where: {
-                id
+                id: Number(id),
             },
         })
     
@@ -149,5 +149,104 @@ app.listen(3000, ()=>{
     console.log("Servidor rodando na porta http://localhost:3000")
 })
 
+//DAQUI PRA CIMA É FUNÇÕES PARA O USÚARIO
+//DAQUI PRA CIMA É FUNÇÕES PARA O USÚARIO
+//DAQUI PRA CIMA É FUNÇÕES PARA O USÚARIO
+
+//Criar um novo contato
+app.post('/contatos', validarToken, async (req, res) => {
+    const { name, lastName, email, phone } = req.body;
+    const userId = req.usuario.id;
+  
+    try {
+      const newContact = await prisma.contact.create({
+        data: {
+          name,
+          lastName,
+          email,
+          phone,
+          userId,
+        },
+      });
+      res.status(201).json({ message: 'Contato criado com sucesso', contact: newContact });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: 'Erro ao criar o contato' });
+    }
+  });
+
+//Listar todos os contatos de um usuário
+  app.get('/contatos', validarToken, async (req, res) => {
+    const userId = req.usuario.id;
+  
+    try {
+      const contacts = await prisma.contact.findMany({
+        where: { userId },
+      });
+      res.status(200).json(contacts);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: 'Erro ao listar os contatos' });
+    }
+  });
+
+  //Marcar/desmarcar um contato como favorito
+  app.put('/contatos/:id/favoritar', validarToken, async (req, res) => {
+    const contactId = req.params.id;
+    const userId = req.usuario.id;
+  
+    try {
+      // Verifica se o contato pertence ao usuário
+      const contact = await prisma.contact.findUnique({
+        where: { id: contactId },
+      });
+  
+      if (!contact || contact.userId !== userId) {
+        return res.status(404).json({ message: 'Contato não encontrado ou não pertence ao usuário' });
+      }
+  
+      // Atualiza o status de favorito
+      const updatedContact = await prisma.contact.update({
+        where: { id: contactId },
+        data: {
+          isFavorite: !contact.isFavorite,  // Alterna entre true e false
+        },
+      });
+  
+      res.status(200).json({ message: 'Status de favorito alterado', contact: updatedContact });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: 'Erro ao atualizar o favorito do contato' });
+    }
+  });
+  //Deletar um contato
+  app.delete('/contatos/:id', validarToken, async (req, res) => {
+    const contactId = req.params.id;
+    const userId = req.usuario.id;
+  
+    try {
+      // Verifica se o contato pertence ao usuário
+      const contact = await prisma.contact.findUnique({
+        where: { id: contactId },
+      });
+  
+      if (!contact || contact.userId !== userId) {
+        return res.status(404).json({ message: 'Contato não encontrado ou não pertence ao usuário' });
+      }
+  
+      // Deleta o contato
+      await prisma.contact.delete({
+        where: { id: contactId },
+      });
+  
+      res.status(200).json({ message: 'Contato deletado com sucesso' });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: 'Erro ao deletar o contato' });
+    }
+  });
+
+//PARA RODAR O SERVIDOR PRECISA DA CD Back-API NO TERMINAL E DEPOIS DAR UM node --watch server.js
+  
 //  user: davipadilha
 //  senha do banco de dados: lG3M27LxIrQ5U3zw

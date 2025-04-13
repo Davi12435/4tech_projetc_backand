@@ -20,3 +20,13 @@ model User {
   contact String?
   password String?
 }
+model Contact {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  lastName  String? 
+  email     String?
+  phone     String?
+  createdAt DateTime @default(now())
+  userId    String   @db.ObjectId  // Apenas marca como ObjectId, sem @relation
+  isFavorite Boolean  @default(false)
+}
