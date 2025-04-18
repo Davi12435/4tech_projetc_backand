@@ -246,6 +246,33 @@ app.post('/contatos', validarToken, async (req, res) => {
     }
   });
 
+  app.put('/contatos/:id', validarToken, async (req, res) => {
+    const contactId = Number(req.params.id);
+    const userId = req.usuario.id;
+    const { name, lastName, email, phone } = req.body;
+  
+    try {
+      const contact = await prisma.contact.findUnique({
+        where: { id: contactId },
+      });
+  
+      if (!contact || contact.userId !== userId) {
+        return res.status(404).json({ message: 'Contato não encontrado ou não pertence ao usuário' });
+      }
+  
+      const updatedContact = await prisma.contact.update({
+        where: { id: contactId },
+        data: { name, lastName, email, phone },
+      });
+  
+      res.status(200).json({ message: 'Contato atualizado com sucesso', contact: updatedContact });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: 'Erro ao atualizar o contato' });
+    }
+  });
+  
+
 //PARA RODAR O SERVIDOR PRECISA DA CD Back-API NO TERMINAL E DEPOIS DAR UM node --watch server.js
   
 //  user: davipadilha
