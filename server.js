@@ -277,3 +277,5 @@ app.post('/contatos', validarToken, async (req, res) => {
   
 //  user: davipadilha
 //  senha do banco de dados: lG3M27LxIrQ5U3zw
+
+//aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
