@@ -176,19 +176,53 @@ app.post('/contatos', validarToken, async (req, res) => {
   });
 
 //Listar todos os contatos de um usuário
-  app.get('/contatos', validarToken, async (req, res) => {
-    const userId = req.usuario.id;
+app.get('/contatos', validarToken, async (req, res) => {
+  const userId = req.usuario.id;
+  const { nome, sobrenome, busca } = req.query;  // A busca agora pode ser feita por 'nome', 'sobrenome' ou 'busca'
   
-    try {
+  try {
       const contacts = await prisma.contact.findMany({
-        where: { userId },
+          where: {
+              userId,
+              AND: [
+                  nome ? { name: { contains: nome, mode: 'insensitive' } } : {},
+                  sobrenome ? { lastName: { contains: sobrenome, mode: 'insensitive' } } : {},
+                  busca ? {
+                      OR: [
+                          { name: { contains: busca, mode: 'insensitive' } },
+                          { lastName: { contains: busca, mode: 'insensitive' } },
+                          { email: { contains: busca, mode: 'insensitive' } },
+                          { phone: { contains: busca, mode: 'insensitive' } },
+                      ],
+                  } : {},
+              ],
+          },
       });
       res.status(200).json(contacts);
-    } catch (err) {
+  } catch (err) {
       console.error(err);
       res.status(500).json({ message: 'Erro ao listar os contatos' });
-    }
-  });
+  }
+});
+
+
+// Rota para listar os contatos favoritos
+app.get('/contatos/favoritos', async (req, res) => {
+  //console.log(req.headers); // Verifique os cabeçalhos
+  //console.log(req.query); // Verifique os parâmetros de consulta, se houver
+
+  try {
+      const contatosFavoritos = await prisma.contact.findMany({
+          where: {
+              isFavorite: true, // Filtra contatos onde 'isFavorite' é true
+          },
+      });
+      res.json(contatosFavoritos);
+  } catch (error) {
+      console.error('Erro ao buscar contatos favoritos:', error);
+      res.status(500).json({ message: 'Erro ao buscar contatos favoritos' });
+  }
+});
 
   //Marcar/desmarcar um contato como favorito
   app.put('/contatos/:id/favoritar', validarToken, async (req, res) => {
@@ -247,7 +281,7 @@ app.post('/contatos', validarToken, async (req, res) => {
   });
 
   app.put('/contatos/:id', validarToken, async (req, res) => {
-    const contactId = Number(req.params.id);
+    const contactId = (req.params.id);
     const userId = req.usuario.id;
     const { name, lastName, email, phone } = req.body;
   
@@ -277,5 +311,3 @@ app.post('/contatos', validarToken, async (req, res) => {
   
 //  user: davipadilha
 //  senha do banco de dados: lG3M27LxIrQ5U3zw
-
-//aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
